@@ -15,8 +15,8 @@
 <body>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r16/Stats.js"></script>
-    <script type="text/javascript" src="/lib/chroma.js"></script>
-    <script type="text/javascript" src="/lib/TrackballControls.js"></script>
+    <script type="text/javascript" src="../lib/chroma.js"></script>
+    <script type="text/javascript" src="../lib/TrackballControls.js"></script>
 
     <script>
         // 节流
@@ -106,7 +106,7 @@
                 scene.add(text);
             });
 
-            var floorTexture = THREE.ImageUtils.loadTexture('/img/lnk_floor.jpg', {
+            var floorTexture = THREE.ImageUtils.loadTexture('../img/lnk_floor.jpg', {
                 transparent: true, opacity: 0.1
             });
             floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
@@ -117,7 +117,7 @@
             floor.receiveShadow = true;
             scene.add(floor);
 
-            var bgTexture = THREE.ImageUtils.loadTexture('/img/lkx-bg.jpg', {
+            var bgTexture = THREE.ImageUtils.loadTexture('../img/lkx-bg.jpg', {
                 transparent: true, opacity: 0.8
             });
             var bg = new THREE.Mesh(new THREE.PlaneBufferGeometry(500,150), new THREE.MeshLambertMaterial({map: bgTexture}));
@@ -127,7 +127,7 @@
 
 
             boxList.forEach((item, index)=> {
-                var textureItem = THREE.ImageUtils.loadTexture(`/img/lkx-character_${index + 1}.jpg`, {
+                var textureItem = THREE.ImageUtils.loadTexture(`../img/lkx-character_${index + 1}.jpg`, {
                     transparent: true, opacity: 0.8
                 });
 
