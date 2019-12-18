@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>移动的小球</title>
+    <style>
+        html, body {
+            overflow: hidden;
+        }
+        * { margin: 0;padding: 0; }
+        button {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <button onclick="collisonListener()">监听碰撞</button>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r16/Stats.js"></script>
+    <!-- 物理引擎 -->
+    <script type="text/javascript" src="/lib/physi.js"></script>
+    <script type="text/javascript" src="/lib/TrackballControls.js"></script>
+
+    <script>
+        'use strict'
+        Physijs.scripts.worker = '/lib/physijs_worker.js';
+        Physijs.scripts.ammo = '/lib/ammo.js';
+        
+        var move = {
+            left: false,
+            up: false,
+            right: false,
+            down: false,
+            jump: false
+        }
+        var ARROW_UP = ["W", "w", "ArrowUp"];
+        var ARROW_LEFT = ["A", "a", "ArrowLeft"];
+        var ARROW_RIGHT = ["D", "d", "ArrowRight"];
+        var ARROW_DOWN = ["S", "s", "ArrowDown"];
+        var speed = 10;
+        var clock = new THREE.Clock();
+
+        var container,scene,camera,renderer, light,id,stat, trackballControls;
+        var giftList = [], giftPoints = [];
+        var ballMesh,ballRadius = 3;
+        // 材质
+        var defaultMaterial = new THREE.MeshLambertMaterial({ color: 0x333333, wireframe: false });
+        var blueMaterial = new THREE.MeshPhongMaterial({ color: 0x409eff, wireframe: false });
+
+        function initRender() {
+            container = document.createElement( 'div' );
+            document.body.appendChild( container );
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio( window.devicePixelRatio );
+            renderer.setSize( window.innerWidth, window.innerHeight );
+            renderer.shadowMap.enabled = true;
+            container.appendChild( renderer.domElement );
+        }
+
+        function initStat() {
+            stat = new Stats();
+            stat.domElement.style.position = 'absolute';
+            stat.domElement.style.right = '0px';
+            stat.domElement.style.top = '0px';
+            container.appendChild(stat.domElement);
+        }
+
+        function initScene() {
+            scene = new Physijs.Scene({reportSize: 10, fixedTimeStep: 1 / 60});
+            scene.background = new THREE.Color( 0xeeeeee );
+            scene.setGravity(new THREE.Vector3(0, -100, 0)); // 设置重力
+            // scene.fog = new THREE.Fog( 0xdddddd, 200, 1000 );  // 雾化
+        }
+
+        function initLight() {
+            var ambiColor = "#ffffff";
+            var ambientLight = new THREE.AmbientLight(ambiColor);
+            scene.add(ambientLight);
+
+            var directionalLight = new THREE.DirectionalLight("#ffffff");
+            directionalLight.position.set(-40, 60, -10);
+            directionalLight.castShadow = true;
+            directionalLight.shadowCameraNear = 2;
+            directionalLight.shadowCameraFar = 200;
+            directionalLight.shadowCameraLeft = -50;
+            directionalLight.shadowCameraRight = 50;
+            directionalLight.shadowCameraTop = 50;
+            directionalLight.shadowCameraBottom = -50;
+            directionalLight.distance = 0;
+            directionalLight.intensity = 0.5;
+            directionalLight.shadowMapHeight = 1024;
+            directionalLight.shadowMapWidth = 1024;
+            scene.add(directionalLight);
+        }
+
+        function initCamera() {
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);  // 视角广度、 aspect、 near、 far
+            camera.position.set(0, 60, 10);
+            camera.rotation.x = - Math.PI / 4;
+            scene.add(camera);
+        }
+
+        function initObjects() {
+            var plan = new Physijs.PlaneMesh(new THREE.PlaneGeometry(100,500), Physijs.createMaterial(defaultMaterial, 2, 10));
+            plan.rotation.x = - Math.PI / 2;
+            plan.receiveShadow = true;
+            scene.add(plan);
+
+            giftPoints = [...new Array(9)].map((_, index) => {
+                return { x: 0, y: 0, z: - 4 - index * 15 }
+            });
+            giftList = giftPoints.map(point => {
+                let stoneGeom = new THREE.SphereGeometry(0.5, 20, 20);
+                // let giftItem = new Physijs.SphereMesh(stoneGeom, Physijs.createMaterial(blueMaterial));
+                let giftItem = new THREE.Mesh(stoneGeom, blueMaterial);
+                giftItem.position.copy(point);
+                giftItem.__dirtyRotation = true;
+                giftItem.castShadow = true;
+                giftItem.position.y = 1;
+                scene.add(giftItem);
+                return giftItem;
+            })
+            
+            // 贴图
+            // var texture = THREE.ImageUtils.loadTexture('../img/ball.jpg', {
+            //     transparent: true, opacity: 0.8
+            // }, function() {
+            //     renderer.render(scene, camera);
+            // });
+            // texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            // texture.repeat.set(1, 1);
+
+            ballMesh = new Physijs.SphereMesh(new THREE.SphereGeometry(ballRadius, 20, 20), Physijs.createMaterial(blueMaterial));
+            // ballMesh = new Physijs.SphereMesh(new THREE.SphereGeometry(ballRadius, 20, 20), Physijs.createMaterial(new THREE.MeshLambertMaterial({map: texture})));
+            ballMesh.castShadow = true;
+            // 允许改变物理位置
+            ballMesh.__dirtyPosition = true;
+            ballMesh.position.y += 5;
+            scene.add(ballMesh);
+        }
+
+        function render() {
+            renderer.clear();
+            renderer.render( scene, camera );
+        }
+        //定义键盘按键事件
+        function setKeyEvents(){
+            window.addEventListener('keydown',function(e){
+                if (e.key === ' ') move.jump = true;
+                if(ARROW_UP.indexOf(e.key) > -1) move.up = true;
+                if(ARROW_LEFT.indexOf(e.key) > -1) move.left = true;
+                if(ARROW_RIGHT.indexOf(e.key) > -1) move.right = true;
+                if(ARROW_DOWN.indexOf(e.key) > -1) move.down = true;
+            }); 
+            window.addEventListener('keyup',function(e){
+                if (e.key === ' ') {
+                    move.jump = false;
+                }
+                if(ARROW_UP.indexOf(e.key) > -1) move.up = false;
+                if(ARROW_LEFT.indexOf(e.key) > -1) move.left = false;
+                if(ARROW_RIGHT.indexOf(e.key) > -1) move.right = false;
+                if(ARROW_DOWN.indexOf(e.key) > -1) move.down = false;
+            }); 
+        }
+
+        // 碰撞监听
+        function collisonListener() {
+            // 获取物体中心点坐标
+            var originPoint = ballMesh.position.clone();
+            var beforeScale = ballMesh.scale.x;
+            for (var vertexIndex = 0; vertexIndex < ballMesh.geometry.vertices.length; vertexIndex++) {
+                // 顶点原始坐标
+                var localVertex = ballMesh.geometry.vertices[vertexIndex].clone();
+                // 顶点经过变换后的坐标
+                var globalVertex = localVertex.applyMatrix4(ballMesh.matrix);
+                // 获得由中心指向顶点的向量
+                var directionVector = globalVertex.sub(ballMesh.position);
+                
+                // 将方向向量初始化,并发射光线
+                var ray = new THREE.Raycaster(originPoint, directionVector.clone().normalize());
+                // 检测射线与多个物体的相交情况
+                // 如果为true，它还检查所有后代。否则只检查该对象本身。缺省值为false
+                var collisionResults = ray.intersectObjects(giftList, true);
+                // 如果返回结果不为空，且交点与射线起点的距离小于物体中心至顶点的距离，则发生了碰撞
+                if (collisionResults.length > 0 && collisionResults[0].distance < directionVector.length()) {
+                    let obj = collisionResults[0].object;
+                    giftList.splice(giftList.indexOf(obj), 1);
+                    scene.remove(obj);
+                    ballMesh.scale.set(beforeScale * 1.1, beforeScale * 1.1, beforeScale * 1.1);
+                    break;
+                }
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame( animate );
+            // 碰撞监听
+            collisonListener();
+            // 摄像机跟随
+            camera.position.z = ballMesh.position.z + 30;
+            camera.position.x = ballMesh.position.x;
+            // // 主角移动
+            if(move.jump) {
+                ballMesh.setLinearVelocity(new THREE.Vector3(0, 100, 0));
+            } else if(move.up && move.left) {
+                ballMesh.setLinearVelocity(new THREE.Vector3(-speed, 0, -speed));
+            } else if(move.up && move.right) {
+                ballMesh.setLinearVelocity(new THREE.Vector3(speed, 0, -speed));
+            } else if(move.down && move.right) {
+                ballMesh.setLinearVelocity(new THREE.Vector3(speed, 0, speed));
+            } else if(move.down && move.right) {
+                ballMesh.setLinearVelocity(new THREE.Vector3(speed, 0, speed));
+            } else if(move.up) {
+                ballMesh.setLinearVelocity(new THREE.Vector3(0, 0, -speed));
+            } else if(move.down) {
+                ballMesh.setLinearVelocity(new THREE.Vector3(0, 0, speed));
+            } else if(move.right) {
+                ballMesh.setLinearVelocity(new THREE.Vector3(speed, 0, 0));
+            } else if(move.left) {
+                ballMesh.setLinearVelocity(new THREE.Vector3(-speed, 0, 0));
+            } else {
+                ballMesh.setLinearVelocity(new THREE.Vector3(0, 0, 0));
+            }
+            renderer.render( scene, camera );
+            stat.update();
+            // 物理效果
+            scene.simulate();
+        }
+
+        function init() {
+            initScene();
+            initCamera();
+            initRender();
+            initStat();
+            initLight();
+            initObjects();
+            render();
+            setKeyEvents();
+            collisonListener();
+        }
+        init();
+        animate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>移动的小球</title>
+    <style>
+        html, body {
+            overflow: hidden;
+        }
+        * { margin: 0;padding: 0; }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r16/Stats.js"></script>
+    <script type="text/javascript" src="/lib/chroma.js"></script>
+
+    <script>
+        var scale = chroma.scale(['white', 'blue', 'red', 'yellow']);
+
+        var container,scene,camera,renderer, light,id,stat, trackballControls;
+        var giftList = [], giftPoints = [];
+        var ballMesh,ballRadius = 3;
+        // 材质
+        var defaultMaterial = new THREE.MeshLambertMaterial({ color: 0x333333, wireframe: false });
+
+        function initRender() {
+            container = document.createElement( 'div' );
+            document.body.appendChild( container );
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio( window.devicePixelRatio );
+            renderer.setSize( window.innerWidth, window.innerHeight );
+            renderer.shadowMap.enabled = true;
+            container.appendChild( renderer.domElement );
+        }
+
+        function initStat() {
+            stat = new Stats();
+            stat.domElement.style.position = 'absolute';
+            stat.domElement.style.right = '0px';
+            stat.domElement.style.top = '0px';
+            container.appendChild(stat.domElement);
+        }
+
+        function initScene() {
+            scene = new THREE.Scene({reportSize: 10, fixedTimeStep: 1 / 60});
+            scene.background = new THREE.Color( 0xeeeeee );
+        }
+
+        function initLight() {
+            var ambiColor = "#ffffff";
+            var ambientLight = new THREE.AmbientLight(ambiColor);
+            scene.add(ambientLight);
+
+            var directionalLight = new THREE.DirectionalLight("#ffffff");
+            directionalLight.position.set(-40, 60, -10);
+            directionalLight.castShadow = true;
+            directionalLight.shadowCameraNear = 2;
+            directionalLight.shadowCameraFar = 200;
+            directionalLight.shadowCameraLeft = -50;
+            directionalLight.shadowCameraRight = 50;
+            directionalLight.shadowCameraTop = 50;
+            directionalLight.shadowCameraBottom = -50;
+            directionalLight.distance = 0;
+            directionalLight.intensity = 0.5;
+            directionalLight.shadowMapHeight = 1024;
+            directionalLight.shadowMapWidth = 1024;
+            scene.add(directionalLight);
+        }
+
+        function initCamera() {
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);  // 视角广度、 aspect、 near、 far
+            camera.position.set(0, 60, 10);
+            scene.add(camera);
+        }
+
+        function initObjects() {
+            var plan = new THREE.Mesh(new THREE.PlaneBufferGeometry(100,500), defaultMaterial);
+            plan.rotation.x = - Math.PI / 2;
+            // 接收阴影
+            plan.receiveShadow = true;
+            scene.add(plan);
+
+            var box = new THREE.Mesh(new THREE.BoxGeometry(4, 7, 2), new THREE.MeshPhongMaterial(
+            {
+                color: scale(Math.random()).hex(),
+                transparent: true, opacity: 0.8,
+            }));
+            box.position.y = 3.5;
+            // 投下阴影
+            box.castShadow = true;
+            scene.add(box);
+        }
+
+        function render() {
+            renderer.clear();
+            renderer.render( scene, camera );
+        }
+
+        function animate() {
+            requestAnimationFrame( animate );
+            renderer.render( scene, camera );
+            stat.update();
+        }
+
+        function init() {
+            initScene();
+            initCamera();
+            initRender();
+            initStat();
+            initLight();
+            initObjects();
+            render();
+        }
+        init();
+        animate();
+    </script>
+</body>
+</html>

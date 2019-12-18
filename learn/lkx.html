@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>浪客行</title>
+    <style>
+        html, body {
+            overflow: hidden;
+        }
+        * { margin: 0;padding: 0; }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r16/Stats.js"></script>
+    <script type="text/javascript" src="/lib/chroma.js"></script>
+    <script type="text/javascript" src="/lib/TrackballControls.js"></script>
+
+    <script>
+        // 节流
+        function throttle(fn, timmer) {
+            let pre = 0;
+            return function() {
+                let now = new Date().getTime();
+                if (now - pre > timmer) {
+                fn.call(this, ...arguments);
+                pre = now;
+                }
+            };
+        }
+        var boxList = [
+            [-20, 4.5, 90],
+            [20, 4.5, 90],
+            [-7, 4.5, 80],
+            [7, 4.5, 80],
+            [20, 4.5, 65],
+            [-20, 4.5, 65],
+            [0, 4.5, 50],
+            [-37, 4.5, 50],
+            [37, 4.5, 50],
+
+        ];
+        var container,scene,camera,renderer, light,id,stat, trackballControls;
+        var giftList = [], giftPoints = [];
+        var ballMesh,ballRadius = 3;
+        // 材质
+        var defaultMaterial = new THREE.MeshLambertMaterial({ color: 0xdddddd, wireframe: false });
+
+        function initRender() {
+            container = document.createElement( 'div' );
+            document.body.appendChild( container );
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio( window.devicePixelRatio );
+            renderer.setSize( window.innerWidth, window.innerHeight );
+            renderer.shadowMap.enabled = true;
+
+            container.appendChild( renderer.domElement );
+        }
+
+        function initStat() {
+            stat = new Stats();
+            stat.domElement.style.position = 'absolute';
+            stat.domElement.style.right = '0px';
+            stat.domElement.style.top = '0px';
+            container.appendChild(stat.domElement);
+        }
+
+        function initScene() {
+            scene = new THREE.Scene({reportSize: 10, fixedTimeStep: 1 / 60});
+            scene.background = new THREE.Color( 0xeeeeee );
+            // scene.fog = new THREE.Fog( 0xeeeeee, 100, 100 ); // 雾化
+        }
+
+        function initLight() {
+            var ambiColor = "#666";
+            var ambientLight = new THREE.AmbientLight(ambiColor);
+            scene.add(ambientLight);
+            light = new THREE.DirectionalLight( "#ccc" );
+            light.position.set( 100, 100, 120 );
+            light.castShadow = true;
+            light.shadow.camera.top = 180;
+            light.shadow.camera.bottom = - 100;
+            light.shadow.camera.left = - 120;
+            light.shadow.camera.right = 120;
+            scene.add( light );
+        }
+
+        function initCamera() {
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);  // 视角广度、 aspect、 near、 far
+            camera.position.set(0, 10, 115);
+            camera.rotation.x = -Math.PI / 30;
+            scene.add(camera);
+        }
+
+        function initObjects() {
+            var loader = new THREE.FontLoader();
+            loader.load('../lib/helvetiker_regular.typeface.json', function(font) {
+                var text = new THREE.Mesh(new THREE.TextGeometry('Vagabond', {
+                    font: font,
+                    size: 1.5,
+                    height: 0.5
+                }), new THREE.MeshPhongMaterial({ color: "#fff" }));
+                text.position.set(-5, 13, 100);
+                scene.add(text);
+            });
+
+            var floorTexture = THREE.ImageUtils.loadTexture('/img/lnk_floor.jpg', {
+                transparent: true, opacity: 0.1
+            });
+            floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
+            floorTexture.repeat.set(30, 5);
+            var floor = new THREE.Mesh(new THREE.PlaneBufferGeometry(300,240), defaultMaterial);
+            floor.rotation.x = - Math.PI / 2;
+            // 接收阴影
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            var bgTexture = THREE.ImageUtils.loadTexture('/img/lkx-bg.jpg', {
+                transparent: true, opacity: 0.8
+            });
+            var bg = new THREE.Mesh(new THREE.PlaneBufferGeometry(500,150), new THREE.MeshLambertMaterial({map: bgTexture}));
+            bg.position.y = 60;
+            bg.position.z = -30;
+            scene.add(bg);
+
+
+            boxList.forEach((item, index)=> {
+                var textureItem = THREE.ImageUtils.loadTexture(`/img/lkx-character_${index + 1}.jpg`, {
+                    transparent: true, opacity: 0.8
+                });
+
+                textureItem.wrapS = textureItem.wrapT = THREE.RepeatWrapping;
+                textureItem.repeat.set(1, 1);
+                var boxMaterials = [
+                    new THREE.MeshPhongMaterial( { color: '#ccc' } ), // right
+                    new THREE.MeshPhongMaterial( { color: '#ccc' } ), // left
+                    new THREE.MeshPhongMaterial( { color: '#ccc' } ), // bottom
+                    new THREE.MeshPhongMaterial( { color: '#ccc' } ), // back
+                    new THREE.MeshPhongMaterial( { map: textureItem } ), // top
+                    new THREE.MeshPhongMaterial( { color: '#ccc' } ) // front
+                ];
+                var box = new THREE.Mesh(new THREE.BoxGeometry(6, 9, 1), boxMaterials);
+                box.position.y = 4.5;
+                box.position.set(...item);
+                // 投下阴影
+                // box.receiveShadow = true;
+                box.castShadow = true;
+                scene.add(box);
+            })
+        }
+
+        function render() {
+            renderer.clear();
+            renderer.render( scene, camera );
+        }
+
+        function animate() {
+            requestAnimationFrame( animate );
+            renderer.render( scene, camera );
+            stat.update();
+        }
+
+        function mouseMoveListener() {
+            document.body.addEventListener("mousemove", function(e) {
+                let offsetLeft = e.pageX - window.innerWidth / 2;
+                // let offsetTop = e.pageY - window.innerHeight / 2;
+                // camera.rotation.x = Math.PI * (offsetTop / 10000);
+                camera.rotation.y = Math.PI * (offsetLeft / 20000);
+            });
+        }
+
+        function init() {
+            initScene();
+            initCamera();
+            initRender();
+            initStat();
+            initLight();
+            initObjects();
+            render();
+
+            window.addEventListener('resize', onWindowResize, false);
+            mouseMoveListener();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            renderer.setSize( window.innerWidth, window.innerHeight);
+        }
+        init();
+        animate();
+    </script>
+</body>
+</html>
