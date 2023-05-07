@@ -9,5 +9,5 @@
     three "*"
 
 three@*:
-  version "0.111.0"
-  resolved "https://registry.npmjs.org/three/-/three-0.111.0.tgz#9cedb73e79b7f6bf2440cb67a273f883faa923b6"
+  version "0.152.2"
+  resolved "https://registry.yarnpkg.com/three/-/three-0.152.2.tgz#2ee0f2c504d31a4bc29b45495c12bded9fda7bfc"
